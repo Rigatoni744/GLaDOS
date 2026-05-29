@@ -1,3 +1,3 @@
 import streamlit as st
-st.title('홍일아 나야')
-st.write('김민석이 그런건가')
+st.title('중촌')
+st.write('현대아파트복도끝으로파란불이깜빡이지')
