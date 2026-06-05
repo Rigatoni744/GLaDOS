@@ -1,135 +1,69 @@
 import streamlit as st
-import random
+import google.generativeai as genai
 
-# 1900년대 한국 근대문학 목록
-BOOKS = [
-    {
-        "title": "무정",
-        "author": "이광수",
-        "year": 1917,
-        "genre": "장편소설",
-        "desc": "한국 최초의 근대 장편소설. 봉건적 구습과 근대적 자아 사이에서 갈등하는 청년의 이야기."
-    },
-    {
-        "title": "운수 좋은 날",
-        "author": "현진건",
-        "year": 1924,
-        "genre": "단편소설",
-        "desc": "인력거꾼 김첨지의 비극적 하루를 통해 일제강점기 하층민의 삶을 사실적으로 그린 단편."
-    },
-    {
-        "title": "감자",
-        "author": "김동인",
-        "year": 1925,
-        "genre": "단편소설",
-        "desc": "환경에 의해 타락해가는 여성 복녀의 이야기로, 자연주의 문학의 대표작."
-    },
-    {
-        "title": "날개",
-        "author": "이상",
-        "year": 1936,
-        "genre": "단편소설",
-        "desc": "식민지 지식인의 내면 분열을 실험적 기법으로 그린 한국 모더니즘 문학의 정수."
-    },
-    {
-        "title": "소나기",
-        "author": "황순원",
-        "year": 1953,
-        "genre": "단편소설",
-        "desc": "순수한 소년과 소녀의 짧은 만남과 이별을 서정적으로 담은 한국 단편문학의 명작."
-    },
-    {
-        "title": "진달래꽃",
-        "author": "김소월",
-        "year": 1922,
-        "genre": "시",
-        "desc": "이별의 정한을 한국적 정서로 표현한 근대 시문학의 대표작."
-    },
-    {
-        "title": "님의 침묵",
-        "author": "한용운",
-        "year": 1926,
-        "genre": "시집",
-        "desc": "불교적 사상과 민족적 저항의식을 담은 88편의 시를 수록한 시집."
-    },
-    {
-        "title": "혈의 누",
-        "author": "이인직",
-        "year": 1906,
-        "genre": "신소설",
-        "desc": "한국 최초의 신소설. 청일전쟁을 배경으로 근대적 개화사상을 담은 작품."
-    },
-    {
-        "title": "B사감과 러브레터",
-        "author": "현진건",
-        "year": 1925,
-        "genre": "단편소설",
-        "desc": "기숙사 사감의 위선과 억압된 욕망을 풍자적으로 그린 단편소설."
-    },
-    {
-        "title": "태평천하",
-        "author": "채만식",
-        "year": 1938,
-        "genre": "장편소설",
-        "desc": "일제강점기 친일 부르주아 가족의 타락상을 풍자한 채만식의 대표작."
-    },
-    {
-        "title": "레디메이드 인생",
-        "author": "채만식",
-        "year": 1934,
-        "genre": "단편소설",
-        "desc": "식민지 시대 실업 지식인의 고통을 날카로운 풍자로 그린 작품."
-    },
-    {
-        "title": "동백꽃",
-        "author": "김유정",
-        "year": 1936,
-        "genre": "단편소설",
-        "desc": "토속적 배경 속 순박한 남녀의 사랑을 해학적으로 표현한 농촌 소설."
-    },
-    {
-        "title": "봄봄",
-        "author": "김유정",
-        "year": 1935,
-        "genre": "단편소설",
-        "desc": "순박하고 우직한 데릴사위와 장인의 갈등을 해학과 웃음으로 풀어낸 명작."
-    },
-    {
-        "title": "사랑손님과 어머니",
-        "author": "주요섭",
-        "year": 1935,
-        "genre": "단편소설",
-        "desc": "어린 소녀의 시선으로 바라본 어머니의 이루지 못한 사랑을 섬세하게 그린 작품."
-    },
-    {
-        "title": "광염 소나타",
-        "author": "김동인",
-        "year": 1929,
-        "genre": "단편소설",
-        "desc": "예술지상주의를 극단적으로 추구하는 천재 음악가의 광기를 그린 작품."
-    },
-]
+# 1. 페이지 설정 및 제목
+st.set_page_config(page_title="문학 해설 챗봇", page_icon="📚")
+st.title("📚 문학 해설 AI 챗봇")
+st.subheader("시, 소설 등 어떤 문학 작품이든 물어보세요!")
 
-# 페이지 설정
-st.set_page_config(
-    page_title="한국 근대문학 추천",
-    page_icon="📚",
-    layout="centered"
-)
+# 2. Streamlit Secrets에서 API 키 불러오기 및 설정
+try:
+    # Secrets에 저장된 키 이름을 사용합니다.
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+except KeyError:
+    st.error("⚠️ Streamlit Secrets에 'GEMINI_API_KEY'가 설정되지 않았습니다. 대시보드 설정을 확인해주세요.")
+    st.stop()
 
-st.title("📚 한국 근대문학 랜덤 추천")
-st.caption("1900년대 ~ 1950년대 한국 근대문학 작품을 랜덤으로 추천해드립니다.")
+# 3. 세션 상태(Session State)로 채팅 기록 초기화
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": "안녕하세요! 저는 문학 해설을 도와주는 AI 비서입니다. 궁금한 작품, 작가, 또는 특정 구절에 대해 질문해주세요! (예: 윤동주의 '서시' 해설해줘)"
+        }
+    ]
 
-st.divider()
+# 4. 기존 채팅 기록 화면에 출력
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
 
-if st.button("🎲 랜덤 추천받기", use_container_width=True, type="primary"):
-    book = random.choice(BOOKS)
-    st.subheader(f"『{book['title']}』")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("작가", book["author"])
-    col2.metric("발표연도", book["year"])
-    col3.metric("장르", book["genre"])
-    st.info(book["desc"])
+# 5. 사용자 입력 받기
+if user_input := st.chat_input("질문을 입력하세요..."):
+    # 사용자 메시지를 화면에 출력 및 세션에 저장
+    with st.chat_message("user"):
+        st.write(user_input)
+    st.session_state.messages.append({"role": "user", "content": user_input})
 
-st.divider()
-st.caption(f"총 {len(BOOKS)}편의 작품이 등록되어 있습니다.")
+    # AI 응답 생성 과정 (오류 처리 포함)
+    with st.chat_message("assistant"):
+        response_placeholder = st.empty()
+        with st.spinner("문학 작품을 분석 중입니다..."):
+            try:
+                # gemini-2.5-flash-lite 모델 로드
+                # 페르소나 부여를 위해 system_instruction 추가
+                model = genai.GenerativeModel(
+                    model_name="gemini-2.5-flash-lite",
+                    system_instruction="당신은 깊이 있고 친절한 문학 평론가이자 해설가입니다. 사용자가 묻는 문학 작품의 주제, 배경, 심상, 표현 기법 등을 쉽고 명확하게 설명해주세요."
+                )
+                
+                # 이전 대화 맥락을 포함하여 API 호출 준비
+                # Gemini의 대화 형식(user, model)에 맞게 이전 메시지 변환
+                history = []
+                for msg in st.session_state.messages[:-1]: # 방금 넣은 user_input 제외
+                    role = "user" if msg["role"] == "user" else "model"
+                    history.append({"role": role, "parts": [msg["content"]]})
+                
+                # 대화 시작 및 메시지 전송
+                chat = model.start_chat(history=history)
+                response = chat.send_message(user_input)
+                
+                # 결과 출력 및 저장
+                ai_response = response.text
+                response_placeholder.write(ai_response)
+                st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                
+            except Exception as e:
+                error_msg = f"❌ API 호출 중 오류가 발생했습니다: {str(e)}"
+                response_placeholder.error(error_msg)
